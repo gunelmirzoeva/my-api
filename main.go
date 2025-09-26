@@ -2,7 +2,7 @@ package main
 
 import (
 	"net/http"
-	//"sort"
+	"sort"
 	"strconv"
 	"github.com/gin-gonic/gin"
 )
@@ -24,9 +24,9 @@ func main() {
 	{
 		api.POST("/users", createUser)
 		api.POST("/users/:id/login", loginUser)
-		/*api.PUT("/users/:id/disable", disableUser)
+		api.PUT("/users/:id/disable", disableUser)
 		api.DELETE("/users/:id", deleteUser)
-		api.GET("/users", listUsers)*/
+		api.GET("/users", listUsers)
 	}
 
 	r.Run(":8080")
@@ -65,4 +65,59 @@ func loginUser(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+}
+
+func disableUser(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error" : "Invalid ID"})
+		return 
+	}
+
+	for i, u := range users {
+		if u.ID == id && !u.Deleted {
+			users[i].Status = "Disabled"
+			c.JSON(http.StatusOK, users[i])
+			return 
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+}
+
+func deleteUser(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	for i, u := range users {
+		if u.ID == id && !u.Deleted {
+			users[i].Deleted = true
+			c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+}
+
+func listUsers(c *gin.Context) {
+	filterStatus := c.Query("status")
+	var filtered []User
+
+	for _, u := range users {
+		if !u.Deleted && (filterStatus == "" || u.Status == filterStatus) {
+			filtered = append(filtered, u)
+		}
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		order := map[string]int{"Active": 0, "Pending": 1, "Disabled": 2}
+		return order[filtered[i].Status] < order[filtered[j].Status]
+	})
+
+	c.JSON(http.StatusOK, filtered)
 }
